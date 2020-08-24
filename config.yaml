@@ -1,0 +1,7 @@
+# Reference
+assembly: HiC_assembly/Mgal6.fa
+
+# Directory with data to use (for reads and reference)
+DATADIR: /lustre/backup/WUR/ABGC/shared/ABGC_Projects/Turkey_Assembly/
+
+BAM: realign_pacbio/pb_mapped_Mgal6.sorted.bam
