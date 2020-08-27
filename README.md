@@ -1,9 +1,15 @@
 # Polish assembly based on short read alignment
 
+## Don't run your analysis in this directory, copy this directory somwhere else and run it there - don't make any changes to this directory
+----
+
 
 Install `conda` if you don't have it
 
 ### Create conda environment
+
+Recommended - give the profile a name related to this pipeline (ex: polish-assembly)
+
 ```
 conda create --name <env> --file requirements.txt
 ```
@@ -20,7 +26,8 @@ conda deactivate
 
 ### Create hpc config file ([good example](https://www.sichong.site/2020/02/25/snakemake-and-slurm-how-to-manage-workflow-with-resource-constraint-on-hpc/))
 
-Necessary for snakemake to prepare and send jobs
+Necessary for snakemake to prepare and send jobs.   
+Recommended - give the profile a name related to this pipeline (ex: polish-assembly)
 
 #### Start with creating the directory
 ```
@@ -40,6 +47,11 @@ use-conda: true
 ### Change the paths and choose where the results will be saved (OUTDIR). Snakemake will run in this directory
 
 ## How to run
+_____
+Change the config file in the pipeline directory to contain the files/paths to the files you want.   
+Change "OUTDIR" to the directory where you want snakemake to run and where your results will be saved to.   
+____
+
 First it's good to always make a dry run: shows if there are any problems with the rules and we can use it to look at the commands and verify that all the fields are in the correct place
 
 Dry run (prints execution plan and commands that will be run)
