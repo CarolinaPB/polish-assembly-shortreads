@@ -5,3 +5,8 @@ assembly: HiC_assembly/Mgal6.fa
 DATADIR: /lustre/backup/WUR/ABGC/shared/ABGC_Projects/Turkey_Assembly/
 
 BAM: realign_pacbio/pb_mapped_Mgal6.sorted.bam
+
+# file with regions to use for variant calling:
+# can be created from the BAM file:
+    # module load samtools && samtools idxstats <BAM> | cut -f 1 > chr_names.txt
+REGIONS: chr_names.txt
