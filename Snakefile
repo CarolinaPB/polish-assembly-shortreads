@@ -13,11 +13,8 @@ regions_list_replace = [el.replace("|", "__") for el in regions_list]
 
 rule all:
     input:
-        # expand("variant_calling/{region}.vcf.gz", region=regions_list),
-        # "results/bcftools_stats.txt"
-        # expand("variant_calling/sorted/{region}.sorted.vcf.gz", region=regions_list)
-        # expand("variant_calling_sorted/{region}.indexed.sorted.vcf.gz", region=regions_list),
-        "variant_calling_sorted/var.merged.vcf.gz"
+        "variant_calling_sorted/var.merged.indexed.sorted.vcf.gz",
+        "results/bcftools_stats.txt"
 rule longshot:
     input:
         reference= ASSEMBLY, 
@@ -39,7 +36,7 @@ rule index_vcf:
     input: 
         rules.zip_vcf.output
     output:
-        "variant_calling/{region}.vcf.gz.tbi"
+        temp("variant_calling/{region}.vcf.gz.tbi") # make temporary
     shell:
         "module load bcftools && tabix -p vcf '{input}'"
 
@@ -50,25 +47,53 @@ rule sort_vcf:
     output:
         temp("variant_calling_sorted/{region}.indexed.sorted.vcf.gz")
     shell:
-        "module load bcftools && bcftools sort '{input.files}' > '{output}'"
+        "module load bcftools && bcftools sort -Oz '{input.files}' > '{output}'"
 
 rule merge_vcf:
     input:
-        # rules.sort_vcf.output
+        # rules.sort_vcf.output make temporary
         expand("variant_calling_sorted/{region}.indexed.sorted.vcf.gz", region = regions_list)
     output:
         "variant_calling_sorted/var.merged.vcf.gz"
     shell:
         "module load vcftools samtools && vcf-concat {input:q} | bgzip -c > {output}"
 
+rule index_merged_vcf:
+    input: 
+        rules.merge_vcf.output
+    output:
+        "variant_calling_sorted/var.merged.vcf.gz.tbi"
+    shell:
+        "module load bcftools && tabix -p vcf {input}"
+
+rule sort_merged_vcf:
+    input:
+        file = rules.merge_vcf.output,
+        index = rules.index_merged_vcf.output
+    output:
+        "variant_calling_sorted/var.merged.indexed.sorted.vcf.gz"
+    shell:
+        "module load bcftools && bcftools sort {input.file} > {output}"
+
 rule bcftools_stats:
     input:
-        rules.merge_vcf.output
+        rules.sort_merged_vcf.output
     output:
         "results/bcftools_stats.txt"
     shell:
         "module load bcftools && bcftools stats {input} > {output}"
 
+
+
+
+
+# rule find_homozygous_snps:
+#     input:
+#         rules.sort_merged_vcf.output
+#     output:
+#         "results/homozygous_snps.vcf"
+#     shell:
+#         "module load bcftools && bcftools view -Oz --genotype hom {input} -o {output}"
 
 # rule pilon:
 #     input:
