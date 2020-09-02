@@ -21,6 +21,8 @@ rule longshot:
         bam=os.path.join(config["DATADIR"], config["BAM"])
     output:
         temp("variant_calling/{region}.vcf")
+    message:
+        "Rule {rule} processing"
     shell:
         'longshot -r "{wildcards.region}" --bam {input.bam} --ref {input.reference} --out "{output}" --min_alt_count 20 --min_allele_qual 10 --min_alt_frac 0.2'
 
@@ -29,6 +31,8 @@ rule zip_vcf:
         rules.longshot.output
     output:
         temp("variant_calling/{region}.vcf.gz")
+    message:
+        "Rule {rule} processing"
     shell:
         "module load samtools && bgzip -c '{input}'> '{output}'"
 
@@ -37,6 +41,8 @@ rule index_vcf:
         rules.zip_vcf.output
     output:
         temp("variant_calling/{region}.vcf.gz.tbi") # make temporary
+    message:
+        "Rule {rule} processing"
     shell:
         "module load bcftools && tabix -p vcf '{input}'"
 
@@ -46,6 +52,8 @@ rule sort_vcf:
         index = rules.index_vcf.output
     output:
         temp("variant_calling_sorted/{region}.indexed.sorted.vcf.gz")
+    message:
+        "Rule {rule} processing"
     shell:
         "module load bcftools && bcftools sort -Oz '{input.files}' > '{output}'"
 
@@ -55,6 +63,8 @@ rule merge_vcf:
         expand("variant_calling_sorted/{region}.indexed.sorted.vcf.gz", region = regions_list)
     output:
         "variant_calling_sorted/var.merged.vcf.gz"
+    message:
+        "Rule {rule} processing"
     shell:
         "module load vcftools samtools && vcf-concat {input:q} | bgzip -c > {output}"
 
@@ -63,6 +73,8 @@ rule index_merged_vcf:
         rules.merge_vcf.output
     output:
         "variant_calling_sorted/var.merged.vcf.gz.tbi"
+    message:
+        "Rule {rule} processing"
     shell:
         "module load bcftools && tabix -p vcf {input}"
 
@@ -72,6 +84,8 @@ rule sort_merged_vcf:
         index = rules.index_merged_vcf.output
     output:
         "variant_calling_sorted/var.merged.indexed.sorted.vcf.gz"
+    message:
+        "Rule {rule} processing"
     shell:
         "module load bcftools && bcftools sort {input.file} > {output}"
 
@@ -80,6 +94,8 @@ rule bcftools_stats:
         rules.sort_merged_vcf.output
     output:
         "results/bcftools_stats.txt"
+    message:
+        "Rule {rule} processing"
     shell:
         "module load bcftools && bcftools stats {input} > {output}"
 
