@@ -13,14 +13,14 @@ regions_list_replace = [el.replace("|", "__") for el in regions_list]
 
 rule all:
     input:
-        "variant_calling_sorted/var.merged.indexed.sorted.vcf.gz",
+        # "variant_calling_sorted/var.merged.indexed.sorted.vcf.gz",
         "results/bcftools_stats.txt"
 rule longshot:
     input:
         reference= ASSEMBLY, 
         bam=os.path.join(config["DATADIR"], config["BAM"])
     output:
-        temp("variant_calling/{region}.vcf")
+        "variant_calling/{region}.vcf" # make temporary
     message:
         "Rule {rule} processing"
     shell:
@@ -77,27 +77,30 @@ rule index_merged_vcf:
         "Rule {rule} processing"
     shell:
         "module load bcftools && tabix -p vcf {input}"
-
+        
 rule sort_merged_vcf:
     input:
-        file = rules.merge_vcf.output,
-        index = rules.index_merged_vcf.output
+        idx = rules.index_merged_vcf.output,
+        res = rules.merge_vcf.output
     output:
-        "variant_calling_sorted/var.merged.indexed.sorted.vcf.gz"
+        "variant_calling_sorted/var.merged.sorted.vcf.gz"
     message:
         "Rule {rule} processing"
     shell:
-        "module load bcftools && bcftools sort {input.file} > {output}"
+        "module load bcftools && bcftools sort -Oz {input.res} > {output}"
+
+
 
 rule bcftools_stats:
     input:
-        rules.sort_merged_vcf.output
+        sort = rules.sort_merged_vcf.output,
+        index = rules.index_merged_vcf.output
     output:
         "results/bcftools_stats.txt"
     message:
         "Rule {rule} processing"
     shell:
-        "module load bcftools && bcftools stats {input} > {output}"
+        "module load bcftools && bcftools stats {input.sort} > {output}"
 
 
 
