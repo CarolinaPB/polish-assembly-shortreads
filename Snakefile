@@ -62,7 +62,7 @@ rule merge_vcf:
         # rules.sort_vcf.output make temporary
         expand("variant_calling_sorted/{region}.indexed.sorted.vcf.gz", region = regions_list)
     output:
-        "variant_calling_sorted/var.merged.vcf.gz"
+        temp("variant_calling_sorted/var.merged.vcf.gz")
     message:
         "Rule {rule} processing"
     shell:
@@ -89,12 +89,21 @@ rule sort_merged_vcf:
     shell:
         "module load bcftools && bcftools sort -Oz {input.res} > {output}"
 
+rule index_sorted_vcf:
+    input: 
+        rules.sort_merged_vcf.output
+    output:
+        "variant_calling_sorted/var.merged.sorted.vcf.gz.tbi"
+    message:
+        "Rule {rule} processing"
+    shell:
+        "module load bcftools && tabix -p vcf {input}"
 
 
 rule bcftools_stats:
     input:
         sort = rules.sort_merged_vcf.output,
-        index = rules.index_merged_vcf.output
+        index = rules.index_sorted_vcf.output
     output:
         "results/bcftools_stats.txt"
     message:
