@@ -242,4 +242,3 @@ Mgal6_Scaffold241|Scaffold_241__1_contigs__length_1996
 Mgal6_Scaffold242|Scaffold_242__1_contigs__length_1877
 Mgal6_Scaffold243|Scaffold_243__1_contigs__length_1474
 Mgal6_Scaffold244|Scaffold_244__1_contigs__length_738
-*
