@@ -9,7 +9,9 @@ BAM: realign_pacbio/pb_mapped_Mgal6.sorted.bam
 # file with regions to use for variant calling:
 # can be created from the BAM file:
     # module load samtools && samtools idxstats <BAM> | cut -f 1 > chr_names.txt
+    # remove the line with an asterisk: awk '!/*/' chr_names.txt > temp && mv temp chr_names.txt
 REGIONS: chr_names.txt
 
+SHORT_READS_BAM: /lustre/nobackup/WUR/ABGC/moiti001/mapping_all_short/sorted_reads/DTG-SG-188.sort.bam 
 # set directory were snakemake will run and results will be saved
-# OUTDIR: /lustre/nobackup/WUR/ABGC/moiti001/polish-assembly-shortreads
+# OUTDIR: /lustre/nobackup/WUR/ABGC/moiti001/test_polish
