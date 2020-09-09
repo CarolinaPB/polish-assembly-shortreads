@@ -22,14 +22,16 @@ rule all:
     input:
         # "variant_calling_sorted/var.merged.indexed.sorted.vcf.gz",
         "results/bcftools_stats.txt",
-        expand("pilon/region_{n}.fasta", n=["%.3d" % i for i in range(nfiles)])
+        expand("pilon/region_{n}.{ext}", n=["%.3d" % i for i in range(nfiles)], ext=["fasta", "vcf"]),
+        # expand("pilon/region_{n}.fasta", n=[230, 140]),
+        # "pilon/pilon.sorted.vcf.gz"
 
 rule longshot:
     input:
         reference= ASSEMBLY, 
         bam=os.path.join(config["DATADIR"], config["BAM"])
     output:
-        "variant_calling/{region}.vcf" # make temporary
+        temp("variant_calling/{region}.vcf") # make temporary
     message:
         "Rule {rule} processing"
     shell:
@@ -120,8 +122,6 @@ rule bcftools_stats:
     shell:
         "module load bcftools && bcftools stats {input.sort} > {output}"
 
-
-
 rule split_regions:
     input:
         config["REGIONS"]
@@ -143,16 +143,60 @@ rule pilon:
         reference= ASSEMBLY, 
         # bam=os.path.join(config["DATADIR"], config["BAM"]),
         short_bam = config["SHORT_READS_BAM"],
-        regions = "regions/region_{n}",
+        regions = "regions/region_{n}"
         
-    output:
-        "pilon/region_{n}.fasta"
+    output: 
+        expand("pilon/region_{{n}}.{ext}", ext=["fasta", "vcf"]) #make temporary
     params:
         outdir = "pilon/",
-        depth=0.8,
+        depth=0.7,
+    message:
+        "Rule {rule} processing"
+    log:
+        "logs_rules/pilon/region_{n}.log"
+    shell:
+        """
+        pilon -Xmx150G --genome {input.reference} --bam {input.short_bam} --outdir {params.outdir} --output region_{wildcards.n} --vcf --diploid --mindepth {params.depth} --targets {input.regions} --threads 30 --fix bases --changes > {log} 
+        """
+
+rule concat_pilon_vcf:
+    input:
+        expand("pilon/region_{n}.vcf", n=["%.3d" % i for i in range(nfiles)]),
+    output:
+        "pilon/pilon.vcf.gz" # make temporary
+    message:
+        "rule {rule} processing"
+    shell:
+        "module load vcftools samtools && vcf-concat {input:q} | bgzip -c > {output}"
+
+rule index_pilon_vcf:
+    input: 
+        rules.concat_pilon_vcf.output
+    output:
+        "pilon/pilon.sorted.vcf.gz.tbi"
     message:
         "Rule {rule} processing"
     shell:
-        """
-        pilon -Xmx150G --genome {input.reference} --bam {input.short_bam} --outdir {params.outdir} --output region_{wildcards.n} --vcf --diploid --mindepth {params.depth} --targets {input.regions} --threads 30 --fix "bases" 
-        """
+        "module load bcftools && tabix -p vcf {input}"
+
+rule sort_concat_pilon_vcf:
+    input:
+        idx = rules.index_pilon_vcf.output,
+        res = rules.concat_pilon_vcf.output
+    output:
+        "pilon/pilon.sorted.vcf.gz"
+    message:
+        "Rule {rule} processing"
+    shell:
+        "module load bcftools && bcftools sort -Oz {input.res} > {output}"
+
+rule concat_pilon_fasta:
+    input:
+        expand("pilon/region_{n}.fasta", n=["%.3d" % i for i in range(nfiles)]),
+    output:
+        "pilon/pilon.fasta"
+    message:
+        "rule {rule} processing"
+    shell:
+        "cat {input} > {output}"
+
