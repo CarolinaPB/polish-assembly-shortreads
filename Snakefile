@@ -24,7 +24,7 @@ rule all:
         "results/bcftools_stats.txt",
         expand("pilon/region_{n}.{ext}", n=["%.3d" % i for i in range(nfiles)], ext=["fasta", "vcf"]),
         # expand("pilon/region_{n}.fasta", n=[230, 140]),
-        # "pilon/pilon.sorted.vcf.gz"
+        "pilon/pilon.sorted.vcf.gz"
 
 rule longshot:
     input:
@@ -173,7 +173,7 @@ rule index_pilon_vcf:
     input: 
         rules.concat_pilon_vcf.output
     output:
-        "pilon/pilon.sorted.vcf.gz.tbi"
+        "pilon/pilon.vcf.gz.tbi"
     message:
         "Rule {rule} processing"
     shell:
@@ -200,3 +200,12 @@ rule concat_pilon_fasta:
     shell:
         "cat {input} > {output}"
 
+rule concat_pilon_changes:
+    input:
+        expand("pilon/region_{n}.changes", n=["%.3d" % i for i in range(nfiles)])
+    output:
+        "pilon/all_changes"
+    message:
+        "Rule {rule} processing"
+    shell:
+        "cat *.changes > all_changes"
