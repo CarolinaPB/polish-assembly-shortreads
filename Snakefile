@@ -24,7 +24,9 @@ rule all:
         "results/bcftools_stats.txt",
         expand("pilon/region_{n}.{ext}", n=["%.3d" % i for i in range(nfiles)], ext=["fasta", "vcf"]),
         # expand("pilon/region_{n}.fasta", n=[230, 140]),
-        "pilon/pilon.sorted.vcf.gz"
+        "pilon/pilon.sorted.vcf.gz",
+        "pilon/pilon.fasta",
+        "results/pilon.amb"
 
 rule longshot:
     input:
@@ -128,7 +130,7 @@ rule split_regions:
     output:
         # dynamic("regions/region_{n}")
         # directory("regions/"),
-        regions = "regions/region_{n}" # creates many unnecessary jobs. It's supposed to be done in one job. If make it so that it's only one job then the next rule will not recognize the output
+        regions = temp("regions/region_{n}") # creates many unnecessary jobs. It's supposed to be done in one job. If make it so that it's only one job then the next rule will not recognize the output
     params:
         prefix = "region_"
     message:
@@ -141,12 +143,11 @@ rule split_regions:
 rule pilon:
     input:
         reference= ASSEMBLY, 
-        # bam=os.path.join(config["DATADIR"], config["BAM"]),
         short_bam = config["SHORT_READS_BAM"],
         regions = "regions/region_{n}"
         
     output: 
-        expand("pilon/region_{{n}}.{ext}", ext=["fasta", "vcf"]) #make temporary
+        temp(expand("pilon/region_{{n}}.{ext}", ext=["fasta", "changes"])) #make temporary
     params:
         outdir = "pilon/",
         depth=0.7,
@@ -156,7 +157,7 @@ rule pilon:
         "logs_rules/pilon/region_{n}.log"
     shell:
         """
-        pilon -Xmx150G --genome {input.reference} --bam {input.short_bam} --outdir {params.outdir} --output region_{wildcards.n} --vcf --diploid --mindepth {params.depth} --targets {input.regions} --threads 30 --fix bases --changes > {log} 
+        pilon -Xmx150G --genome {input.reference} --bam {input.short_bam} --outdir {params.outdir} --output region_{wildcards.n} --diploid --mindepth {params.depth} --targets {input.regions} --threads 30 --fix bases --changes > {log} 
         """
 
 rule concat_pilon_vcf:
@@ -184,7 +185,7 @@ rule sort_concat_pilon_vcf:
         idx = rules.index_pilon_vcf.output,
         res = rules.concat_pilon_vcf.output
     output:
-        "pilon/pilon.sorted.vcf.gz"
+        "results/pilon.sorted.vcf.gz"
     message:
         "Rule {rule} processing"
     shell:
@@ -194,7 +195,7 @@ rule concat_pilon_fasta:
     input:
         expand("pilon/region_{n}.fasta", n=["%.3d" % i for i in range(nfiles)]),
     output:
-        "pilon/pilon.fasta"
+        "results/pilon.fasta"
     message:
         "rule {rule} processing"
     shell:
@@ -202,10 +203,18 @@ rule concat_pilon_fasta:
 
 rule concat_pilon_changes:
     input:
-        expand("pilon/region_{n}.changes", n=["%.3d" % i for i in range(nfiles)])
+        "pilon/region_{n}.changes"
     output:
-        "pilon/all_changes"
+        "results/all_changes.txt"
     message:
         "Rule {rule} processing"
     shell:
-        "cat *.changes > all_changes"
+        "cat {input} > {output}"
+
+rule bwa_index:
+    input: 
+        rules.concat_pilon_fasta.output
+    output:
+        "results/pilon.amb"
+    shell:
+        "module load bwa && bwa index {input}"
