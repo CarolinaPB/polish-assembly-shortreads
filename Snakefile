@@ -124,19 +124,14 @@ rule all:
 #         "module load bcftools && bcftools stats {input.sort} > {output}"
 
 rule split_regions:
-    # input:
-    #     config["REGIONS"]
     output:
-        # dynamic("regions/region_{n}")
-        # directory("regions/"),
-        regions = temp("regions/region_{n}") # creates many unnecessary jobs. It's supposed to be done in one job. If make it so that it's only one job then the next rule will not recognize the output
+        regions = expand(temp("regions/region_{n}"), n=["%.3d" % i for i in range(nfiles)])
     params:
         prefix = "region_",
         regions = config["REGIONS"]
     message:
         "Rule {rule} processing"
     shell:
-        # "split -l 3 -d {input} regions/{params.prefix}"
         "split -l 1 -d -a 3 {params.regions} regions/{params.prefix}"
 
 
