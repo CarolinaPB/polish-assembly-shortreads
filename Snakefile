@@ -1,61 +1,50 @@
 configfile: "config.yaml"
 import os
+# from snakemake.utils import linecount
 
 workdir: config["OUTDIR"]
 
 ASSEMBLY=config["assembly"]
 BAM = config["BAM"]
 
-
-nlines = 0
-with open(config["REGIONS"], "r") as infile:
-    for line in infile:
-        nlines +=1
-
-# nfiles = int(round(nlines/3))
-nfiles = nlines
-
-localrules: all, split_regions, prepare_assembly
+localrules: all, split_regions, get_corrected_summary, create_regions
 
 rule all:
     input:
-        expand("results/pilon.{ext}", ext=["fasta", "changes", "amb"])
+        expand("results/pilon.{ext}", ext=["fasta", "changes"]),
+        "results/pilon.fasta.amb",
+        "results/summary_corrected_sites.txt"
 
-rule prepare_assembly:
-# If it's the second round of polishing, the .fasta file will have |pilon at the end of the chr names.
-# This will remove it so the rest of the analysis can work
+rule create_regions:
     input:
-        ASSEMBLY
+        BAM
     output:
-        temp("data/assembly.fasta")
+        "chr_names.txt"
     message:
         "Rule {rule} processing"
-    params:
-        pattern = "|pilon"
     shell:
         """
-        cp {input} {output}
-        if grep -Fq {params.pattern:q} {output}
-            then
-                sed -i -e 's/|pilon//g' {output}
-        fi
+        module load samtools && samtools idxstats {input} | cut -f 1 > {output}
+        awk '!/*/' {output} > temp && mv temp {output}
         """
 
 rule split_regions:
+    input:
+        "chr_names.txt"
     output:
-        regions = temp(expand(temp("regions/region_{n}"), n=["%.3d" % i for i in range(nfiles)]))
+        regions = temp(expand('regions/region_{n}', n=["%.3d" % i for i in range(config["nregions"])]))
     params:
-        prefix = "region_",
-        regions = config["REGIONS"]
+        prefix = "region_"
+        # regions = config["REGIONS"]
     message:
         "Rule {rule} processing"
     shell:
-        "split -l 1 -d -a 3 {params.regions} regions/{params.prefix}"
+        "split -l 1 -d -a 3 {input} regions/{params.prefix}"
 
 rule pilon:
     input:
-        reference= rules.prepare_assembly.output,
-        short_bam = config["SHORT_READS_BAM"],
+        reference= ASSEMBLY,
+        bam = BAM,
         regions = "regions/region_{n}" 
     output: 
         temp(expand("pilon/region_{{n}}.{ext}", ext=["fasta", "changes"])) #make temporary
@@ -68,12 +57,12 @@ rule pilon:
         "logs_rules/pilon/region_{n}.log"
     shell:
         """
-        pilon -Xmx150G --genome {input.reference} --bam {input.short_bam} --outdir {params.outdir} --output region_{wildcards.n} --diploid --mindepth {params.depth} --targets {input.regions} --threads 30 --fix bases --changes > {log} 
+        pilon -Xmx150G --genome {input.reference} --bam {input.bam} --outdir {params.outdir} --output region_{wildcards.n} --diploid --mindepth {params.depth} --targets {input.regions} --threads 30 --fix bases --changes > {log} 
         """
 
 rule concat_pilon_fasta_changes:
     input:
-        expand("pilon/region_{n}.{{ext}}", n=["%.3d" % i for i in range(nfiles)]),
+        expand("pilon/region_{n}.{{ext}}", n=["%.3d" % i for i in range(config["nregions"])]),
     output:
         "results/pilon.{ext}"
     message:
@@ -85,7 +74,36 @@ rule bwa_index:
     input: 
         "results/pilon.fasta"
     output:
-        "results/pilon.amb"
+        "results/pilon.fasta.amb"
     shell:
         "module load bwa && bwa index {input}"
 
+rule get_corrected_summary:
+    input:
+        "results/pilon.fasta"
+    params:
+        logs = "logs_rules/pilon"
+    output:
+        "results/summary_corrected_sites.txt"
+    message:
+        "Rule {rule} processing"
+    run:
+        snps = 0
+        insertions=0
+        deletions=0
+        log_dir=params.logs
+
+        for file in os.listdir(log_dir):
+            with open(os.path.join(log_dir,file), "r") as infile:
+                for line in infile:
+                    if line.startswith("Corrected"):
+                        extracted = [int(s) for s in line.split() if s.isdigit()]
+                        snps += extracted[0]
+                        insertions += extracted[1]
+                        deletions += extracted[3]
+
+        with open(output[0], "w") as out:
+            out.write("Corrected\n")
+            out.write(f"snps: {snps}\n")
+            out.write(f"insertions: {insertions}\n")
+            out.write(f"deletions: {deletions}\n")
