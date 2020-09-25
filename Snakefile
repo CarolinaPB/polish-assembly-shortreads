@@ -1,19 +1,25 @@
 configfile: "config.yaml"
 import os
-# from snakemake.utils import linecount
 
 workdir: config["OUTDIR"]
+
+include: "/lustre/nobackup/WUR/ABGC/moiti001/snakemake-rules/create_file_log.smk"
+
+pipeline = "polish-assembly-shortreads"
+
 
 ASSEMBLY=config["assembly"]
 BAM = config["BAM"]
 
-localrules: all, split_regions, get_corrected_summary, create_regions
+localrules: split_regions, get_corrected_summary, create_regions, create_file_log
 
 rule all:
     input:
+        files_log,
         expand("results/pilon.{ext}", ext=["fasta", "changes"]),
         "results/pilon.fasta.amb",
-        "results/summary_corrected_sites.txt"
+        "results/summary_corrected_sites.txt",
+        files_log
 
 rule create_regions:
     input:
